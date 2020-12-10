@@ -1,4 +1,3 @@
-import warnings
 from dataclasses import dataclass
 from typing import Tuple
 from typing import Union
@@ -24,10 +23,12 @@ class IDInteger:
         if self.value:
             return IDTuple(self, IDInteger(0)), IDTuple(IDInteger(0), self)
 
-        # the empty interval splits into two empty intervals
-        # (0) -> [(0), (0)]
+        # the empty interval cannot be forked
         else:
-            return self, self
+            # if it was allowed, the empty interval would split into two empty intervals
+            # (0) -> [(0), (0)]
+            # return self, self
+            raise ZeroDivisionError(self)
 
     def join(self, other: Union['IDInteger', 'IDTuple']) -> Union['IDInteger', 'IDTuple']:
         if not isinstance(other, (IDInteger, IDTuple)):
@@ -67,9 +68,9 @@ class IDTuple:
         if not isinstance(self.right, (IDInteger, IDTuple)):
             raise TypeError(self.right)
 
-        # the empty interval should not be represented as an IDTuple
+        # the empty interval should be represented as IDInteger(0)
         if not self:
-            warnings.warn(f'empty interval should be represented as `IDInteger(0)` instead of `{str(self)}`')
+            raise TypeError((self.left, self.right))
 
     def fork(self) -> Tuple[Union[IDInteger, 'IDTuple'], Union[IDInteger, 'IDTuple']]:
         # if both left and right are non-zero, just split
@@ -91,10 +92,12 @@ class IDTuple:
             right_1, right_2 = self.right.fork()
             return IDTuple(IDInteger(0), right_1), IDTuple(IDInteger(0), right_2)
 
-        # this should never happen, but it should behave the same as IDInteger(0).fork()
-        # (0, 0) -> [(0), (0)]
+        # this should never happen because an empty IDTuple should not exist
         else:
-            return IDInteger(0), IDInteger(0)
+            # if it was allowed, it should behave the same as IDInteger(0).fork()
+            # (0, 0) -> [(0), (0)]
+            # return IDInteger(0), IDInteger(0)
+            raise ZeroDivisionError(self)
 
     def join(self, other: Union['IDInteger', 'IDTuple']) -> Union[IDInteger, 'IDTuple']:
         # joining to either a full or empty interval
