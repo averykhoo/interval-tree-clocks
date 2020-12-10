@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -138,3 +139,112 @@ class IDTuple:
         # Truthy if either side is Truthy
         # Falsy if and only if both sides are Falsy
         return bool(self.left) or bool(self.right)
+
+
+@dataclass(frozen=True, eq=False)
+class Event:
+    base: int = 0
+    top_left: Optional['Event'] = None
+    top_right: Optional['Event'] = None
+
+    def __post_init__(self):
+        if not isinstance(self.base, int):
+            raise TypeError(self.base)
+        if self.base < 0:
+            raise ValueError(self.base)
+
+        if self.top_left is not None:
+            if not isinstance(self.top_left, Event):
+                raise TypeError(self.top_left)
+            if not self.top_left:
+                raise ValueError(self.top_left)  # should be None
+
+        if self.top_right is not None:
+            if not isinstance(self.top_right, Event):
+                raise TypeError(self.top_right)
+            if not self.top_right:
+                raise ValueError(self.top_right)  # should be None
+
+    def __bool__(self):
+        if not self.base:
+            if self.top_left is None or not self.top_left:
+                if self.top_right is None or not self.top_right:
+                    return False
+        return True
+
+    def __eq__(self, other: 'Event'):
+        if not isinstance(other, Event):
+            raise TypeError(other)
+
+        _self = self.normalize()
+        _other = other.normalize()
+
+        if _self.base != _other.base:
+            return False
+        if _self.top_left != _other.top_left:
+            return False
+        if _self.top_right != _other.top_right:
+            return False
+        return True
+
+    def __le__(self, other: 'Event'):
+        if not isinstance(other, Event):
+            raise TypeError(other)
+
+        _self = self.normalize()
+        _other = other.normalize()
+
+        if (_self.top_left or _self) > (_other.top_left or _other):
+            return False
+        if (_self.top_right or _self) > (_other.top_right or _other):
+            return False
+        return True
+
+    def fill(self, interval: Union[IDInteger, IDTuple]):
+        raise NotImplementedError
+
+    def grow(self, interval: Union[IDInteger, IDTuple]):
+        raise NotImplementedError
+
+    def join(self, other: 'Event'):
+        raise NotImplementedError
+
+    def replace(self,
+                base: Optional[int] = None,
+                top_left: Optional[Union[int, 'Event']] = None,
+                top_right: Optional[Union[int, 'Event']] = None,
+                ) -> 'Event':
+        if base is None:
+            base = self.base
+        if top_left is None:
+            top_left = self.top_left
+        if top_right is None:
+            top_right = self.top_right
+        return Event(base, top_left, top_right)
+
+    def normalize(self) -> 'Event':
+        # already normalized
+        if self.top_left is None and self.top_right is None:
+            return self
+
+        # normalize top left
+        elif self.top_left is not None and self.top_right is None:
+            return Event(self.base, self.top_left.normalize(), None)
+
+        # normalize top right
+        elif self.top_left is None:
+            return Event(self.base, None, self.top_right.normalize())
+
+        # normalize both recursively
+        else:
+            top_left = self.top_left.normalize()
+            top_right = self.top_right.normalize()
+            denominator = min(top_left.base, top_right.base)
+
+            # move denominator to base
+            base = self.base + denominator
+            top_left = top_left.replace(base=top_left.base - denominator)
+            top_right = top_right.replace(base=top_right.base - denominator)
+
+            # replace with None if it's an empty event
+            return Event(base, top_left or None, top_right or None)
