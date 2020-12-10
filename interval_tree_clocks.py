@@ -73,6 +73,10 @@ class IDTuple:
         if not self:
             raise TypeError((self.left, self.right))
 
+        # check that self is normalized
+        if isinstance(self.left, IDInteger) and self.left == self.right:
+            raise ValueError((self.left, self.right))
+
     def fork(self) -> Tuple[Union[IDInteger, 'IDTuple'], Union[IDInteger, 'IDTuple']]:
         # if both left and right are non-zero, just split
         # (x, y) -> (x, 0), (0, y)
@@ -148,22 +152,29 @@ class Event:
     top_right: Optional['Event'] = None
 
     def __post_init__(self):
+        # check base >= 0
         if not isinstance(self.base, int):
             raise TypeError(self.base)
         if self.base < 0:
             raise ValueError(self.base)
 
+        # check that top left is not an empty Event
         if self.top_left is not None:
             if not isinstance(self.top_left, Event):
                 raise TypeError(self.top_left)
             if not self.top_left:
                 raise ValueError(self.top_left)  # should be None
 
+        # check that top right is not an empty Event
         if self.top_right is not None:
             if not isinstance(self.top_right, Event):
                 raise TypeError(self.top_right)
             if not self.top_right:
                 raise ValueError(self.top_right)  # should be None
+
+        # check that self is normalized
+        if (self.top_left or Event()).base > 0 and (self.top_right or Event()).base > 0:
+            raise ValueError((self.top_left, self.top_right))
 
     def __bool__(self):
         if not self.base:
