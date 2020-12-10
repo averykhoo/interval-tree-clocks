@@ -216,6 +216,11 @@ class Event:
         _self = self.normalize()
         _other = other.normalize()
 
+        if not _self:
+            return _other
+        elif not _other:
+            return _self
+
         base = max(_self.base, _other.base)
 
         if _self.top_left and _other.top_left:
