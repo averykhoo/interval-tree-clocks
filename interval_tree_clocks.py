@@ -210,7 +210,37 @@ class Event:
         raise NotImplementedError
 
     def join(self, other: 'Event'):
-        raise NotImplementedError
+        if not isinstance(other, Event):
+            raise TypeError(other)
+
+        _self = self.normalize()
+        _other = other.normalize()
+
+        base = max(_self.base, _other.base)
+
+        if _self.top_left and _other.top_left:
+            _self_top_left = _self.top_left.replace(base=_self.top_left.base + _self.base - base)
+            _other_top_left = _other.top_left.replace(base=_other.top_left.base + _other.base - base)
+            top_left = _self_top_left.join(_other_top_left)
+        elif _self.top_left:
+            top_left = _self.top_left.replace(base=_self.top_left.base + _self.base - base)
+        elif _other.top_left:
+            top_left = _other.top_left.replace(base=_other.top_left.base + _other.base - base)
+        else:
+            top_left = None
+
+        if _self.top_right and _other.top_right:
+            _self_top_right = _self.top_right.replace(base=_self.top_right.base + _self.base - base)
+            _other_top_right = _other.top_right.replace(base=_other.top_right.base + _other.base - base)
+            top_right = _self_top_right.join(_other_top_right)
+        elif _self.top_right:
+            top_right = _self.top_right.replace(base=_self.top_right.base + _self.base - base)
+        elif _other.top_right:
+            top_right = _other.top_right.replace(base=_other.top_right.base + _other.base - base)
+        else:
+            top_right = None
+
+        return Event(base, top_left or None, top_right or None)
 
     def replace(self,
                 base: Optional[int] = None,
@@ -224,6 +254,7 @@ class Event:
         if top_right is None:
             top_right = self.top_right
 
+        # you can depress the base below zero to lower the top parts
         if base < 0:
             if top_left is not None:
                 top_left = top_left.replace(base=top_left.base + base)
