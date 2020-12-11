@@ -169,30 +169,20 @@ class Event:
                 raise ValueError(self.top_right)  # should be None
 
     @property
-    def left(self):
-        _self_top_left = self.top_left or Event()
-        return _self_top_left.replace(base=_self_top_left.base + self.base)
-
-    @property
-    def right(self):
-        _self_top_right = self.top_right or Event()
-        return _self_top_right.replace(base=_self_top_right.base + self.base)
-
-    @property
     def height(self):
-        if self.top_left is None and self.top_right is None:
-            return self.base
-        elif self.top_left is None:
-            return self.base + self.right.height
-        elif self.top_right is None:
-            return self.base + self.left.height
-        else:
+        if self.top_left and self.top_right:
             return self.base + max(self.top_left.height, self.top_right.height)
+        elif self.top_left:
+            return self.base + self.top_left.height
+        elif self.top_right:
+            return self.base + self.top_right.height
+        else:
+            return self.base
 
     def __bool__(self):
         if not self.base:
-            if self.top_left is None or not self.top_left:
-                if self.top_right is None or not self.top_right:
+            if self.top_left is None:
+                if self.top_right is None:
                     return False
         return True
 
@@ -218,10 +208,17 @@ class Event:
         _self = self.normalize()
         _other = other.normalize()
 
-        if (_self.top_left or _self) > (_other.top_left or _other):
+        if _self.base > _other.base:
             return False
-        if (_self.top_right or _self) > (_other.top_right or _other):
-            return False
+
+        if _self.top_left:
+            if not _self.top_left.offset_base(_self.base - _other.base) <= (_other.top_left or Event()):
+                return False
+
+        if _self.top_right:
+            if not _self.top_right.offset_base(_self.base - _other.base) <= (_other.top_right or Event()):
+                return False
+
         return True
 
     def fill(self, interval: Union[IDInteger, IDTuple]):
@@ -242,18 +239,18 @@ class Event:
             return other.join(self)
 
         if self.top_left and other.top_left:
-            top_left = self.top_left.join(other.top_left.truncate_from_bottom(self.base - other.base))
+            top_left = self.top_left.join(other.top_left.offset_base(other.base - self.base))
         elif self.top_left:
             top_left = self.top_left
         elif other.top_left:
-            top_left = other.top_left.truncate_from_bottom(self.base - other.base)
+            top_left = other.top_left.offset_base(other.base - self.base)
         else:
             top_left = None
 
         if self.top_right and other.top_right:
-            top_right = self.top_right.join(other.top_right.truncate_from_bottom(self.base - other.base))
+            top_right = self.top_right.join(other.top_right.offset_base(other.base - self.base))
         elif other.top_right:
-            top_right = other.top_right.truncate_from_bottom(self.base - other.base)
+            top_right = other.top_right.offset_base(other.base - self.base)
         elif self.top_right:
             top_right = self.top_right
         else:
@@ -261,21 +258,19 @@ class Event:
 
         return Event(self.base, top_left or None, top_right or None)
 
-    def truncate_from_bottom(self,
-                             distance: Optional[int] = None,
-                             ) -> 'Event':
-        base = self.base - distance
+    def offset_base(self, distance: int) -> 'Event':
+        base = self.base + distance
         top_left = self.top_left
         top_right = self.top_right
 
         # you can depress the base below zero to lower the top parts
         if base < 0:
-            if top_left is not None:
-                top_left = top_left.replace(base=top_left.base + base)
-            if top_right is not None:
-                top_right = top_right.replace(base=top_right.base + base)
+            if self.top_left:
+                top_left = top_left.offset_base(top_left.base + base) or None
+            if self.top_right:
+                top_right = top_right.offset_base(top_right.base + base) or None
             base = 0
-        return Event(base, top_left or None, top_right or None)
+        return Event(base, top_left, top_right)
 
     def replace(self,
                 base: Optional[int] = None,
