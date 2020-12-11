@@ -168,6 +168,27 @@ class Event:
             if not self.top_right:
                 raise ValueError(self.top_right)  # should be None
 
+    @property
+    def left(self):
+        _self_top_left = self.top_left or Event()
+        return _self_top_left.replace(base=_self_top_left.base + self.base)
+
+    @property
+    def right(self):
+        _self_top_right = self.top_right or Event()
+        return _self_top_right.replace(base=_self_top_right.base + self.base)
+
+    @property
+    def height(self):
+        if self.top_left is None and self.top_right is None:
+            return self.base
+        elif self.top_left is None:
+            return self.base + self.right.height
+        elif self.top_right is None:
+            return self.base + self.left.height
+        else:
+            return self.base + max(self.top_left.height, self.top_right.height)
+
     def __bool__(self):
         if not self.base:
             if self.top_left is None or not self.top_left:
@@ -213,38 +234,47 @@ class Event:
         if not isinstance(other, Event):
             raise TypeError(other)
 
-        _self = self.normalize()
-        _other = other.normalize()
+        if not self:
+            return other
+        elif not other:
+            return self
+        elif self.base < other.base:
+            return other.join(self)
 
-        if not _self:
-            return _other
-        elif not _other:
-            return _self
-
-        base = max(_self.base, _other.base)
-
-        if _self.top_left and _other.top_left:
-            _self_top_left = _self.top_left.replace(base=_self.top_left.base + _self.base - base)
-            _other_top_left = _other.top_left.replace(base=_other.top_left.base + _other.base - base)
-            top_left = _self_top_left.join(_other_top_left)
-        elif _self.top_left:
-            top_left = _self.top_left.replace(base=_self.top_left.base + _self.base - base)
-        elif _other.top_left:
-            top_left = _other.top_left.replace(base=_other.top_left.base + _other.base - base)
+        if self.top_left and other.top_left:
+            top_left = self.top_left.join(other.top_left.truncate_from_bottom(self.base - other.base))
+        elif self.top_left:
+            top_left = self.top_left
+        elif other.top_left:
+            top_left = other.top_left.truncate_from_bottom(self.base - other.base)
         else:
             top_left = None
 
-        if _self.top_right and _other.top_right:
-            _self_top_right = _self.top_right.replace(base=_self.top_right.base + _self.base - base)
-            _other_top_right = _other.top_right.replace(base=_other.top_right.base + _other.base - base)
-            top_right = _self_top_right.join(_other_top_right)
-        elif _self.top_right:
-            top_right = _self.top_right.replace(base=_self.top_right.base + _self.base - base)
-        elif _other.top_right:
-            top_right = _other.top_right.replace(base=_other.top_right.base + _other.base - base)
+        if self.top_right and other.top_right:
+            top_right = self.top_right.join(other.top_right.truncate_from_bottom(self.base - other.base))
+        elif other.top_right:
+            top_right = other.top_right.truncate_from_bottom(self.base - other.base)
+        elif self.top_right:
+            top_right = self.top_right
         else:
             top_right = None
 
+        return Event(self.base, top_left or None, top_right or None)
+
+    def truncate_from_bottom(self,
+                             distance: Optional[int] = None,
+                             ) -> 'Event':
+        base = self.base - distance
+        top_left = self.top_left
+        top_right = self.top_right
+
+        # you can depress the base below zero to lower the top parts
+        if base < 0:
+            if top_left is not None:
+                top_left = top_left.replace(base=top_left.base + base)
+            if top_right is not None:
+                top_right = top_right.replace(base=top_right.base + base)
+            base = 0
         return Event(base, top_left or None, top_right or None)
 
     def replace(self,
@@ -259,13 +289,6 @@ class Event:
         if top_right is None:
             top_right = self.top_right
 
-        # you can depress the base below zero to lower the top parts
-        if base < 0:
-            if top_left is not None:
-                top_left = top_left.replace(base=top_left.base + base)
-            if top_right is not None:
-                top_right = top_right.replace(base=top_right.base + base)
-            base = 0
         return Event(base, top_left or None, top_right or None)
 
     def normalize(self) -> 'Event':
