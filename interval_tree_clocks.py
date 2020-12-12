@@ -182,23 +182,28 @@ class Event:
     @property
     def complexity(self):
         # complexity cost to have a tuple of 3 items
-        _overhead = 4
+        _overhead = 4  # need the following 4 chars for a tuple of 3 items: ( , , )
 
+        # tuple of (base, top_left, top_right)
         if self.top_left and self.top_right:
             return _overhead + 1 + self.top_left.complexity + self.top_right.complexity
         elif self.top_left:
             return _overhead + 2 + self.top_left.complexity
         elif self.top_right:
             return _overhead + 2 + self.top_right.complexity
+
+        # no tuple needed
         else:
             return 1
 
     def __bool__(self):
-        if not self.base:
-            if self.top_left is None:
-                if self.top_right is None:
-                    return False
-        return True
+        if self.base:
+            return True
+        if self.top_left:
+            return True
+        if self.top_right:
+            return True
+        return False
 
     def __eq__(self, other: 'Event'):
         if not isinstance(other, Event):
