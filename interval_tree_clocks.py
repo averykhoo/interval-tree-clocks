@@ -222,7 +222,23 @@ class Event:
         return True
 
     def fill(self, interval: Union[IDInteger, IDTuple]):
-        raise NotImplementedError
+        if isinstance(interval, IDInteger):
+            if interval.value == 1:
+                return Event(self.height)
+            else:
+                return self
+
+        elif isinstance(interval, IDTuple):
+            top_left = self.top_left
+            top_right = self.top_right
+            if top_left:
+                top_left = top_left.fill(IDTuple.left)
+            if top_right:
+                top_right = top_right.fill(IDTuple.right)
+            return Event(self.base, top_left, top_right).normalize()
+
+        else:
+            raise TypeError(interval)
 
     def grow(self, interval: Union[IDInteger, IDTuple]):
         raise NotImplementedError
