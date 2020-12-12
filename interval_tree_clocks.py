@@ -179,6 +179,20 @@ class Event:
         else:
             return self.base
 
+    @property
+    def complexity(self):
+        # complexity cost to have a tuple of 3 items
+        _overhead = 4
+
+        if self.top_left and self.top_right:
+            return _overhead + 1 + self.top_left.complexity + self.top_right.complexity
+        elif self.top_left:
+            return _overhead + 2 + self.top_left.complexity
+        elif self.top_right:
+            return _overhead + 2 + self.top_right.complexity
+        else:
+            return 1
+
     def __bool__(self):
         if not self.base:
             if self.top_left is None:
@@ -222,6 +236,8 @@ class Event:
         return True
 
     def fill(self, interval: Union[IDInteger, IDTuple]):
+        # note: does not intelligently fill to height of other things
+
         if isinstance(interval, IDInteger):
             if interval.value == 1:
                 return Event(self.height)
@@ -240,8 +256,45 @@ class Event:
         else:
             raise TypeError(interval)
 
-    def grow(self, interval: Union[IDInteger, IDTuple]):
-        raise NotImplementedError
+    def grow(self, interval: Union[IDInteger, IDTuple], amount: int = 1):
+        if not isinstance(amount, int):
+            raise TypeError(amount)
+        elif amount <= 0:
+            raise ValueError(amount)
+
+        if isinstance(interval, IDInteger):
+            if interval.value == 1:
+                return Event(self.height + amount)
+            else:
+                return self
+
+        elif isinstance(interval, IDTuple):
+            if interval.left and interval.right:
+                top_left = (self.top_left or Event()).grow(interval.left, amount)
+                top_right = (self.top_right or Event()).grow(interval.right, amount)
+
+                grow_left = Event(self.base, top_left, self.top_right).normalize()
+                grow_right = Event(self.base, self.top_left, top_right).normalize()
+                grow_both = Event(self.base, top_left, top_right).normalize()
+
+                return min([(grow_left.complexity, grow_left.height, grow_left),
+                            (grow_right.complexity, grow_right.height, grow_right),
+                            (grow_both.complexity, grow_both.height, grow_both),
+                            ], key=lambda x: x[:2])[-1]
+
+            elif interval.left:
+                top_left = (self.top_left or Event()).grow(interval.left, amount)
+                return Event(self.base, top_left, self.top_right).normalize()
+
+            elif interval.right:
+                top_right = (self.top_right or Event()).grow(interval.right, amount)
+                return Event(self.base, self.top_left, top_right).normalize()
+
+            else:
+                raise RuntimeError  # this can never happen
+
+        else:
+            raise TypeError(interval)
 
     def join(self, other: 'Event'):
         if not isinstance(other, Event):
