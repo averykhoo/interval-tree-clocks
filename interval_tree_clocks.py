@@ -1,4 +1,6 @@
+import operator
 from dataclasses import dataclass
+from typing import Callable
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -220,25 +222,37 @@ class Event:
             return False
         return True
 
-    def __le__(self, other: 'Event'):
+    def __compare(self, other: 'Event', op: Callable = operator.le):
         if not isinstance(other, Event):
             raise TypeError(other)
 
         _self = self.normalize()
         _other = other.normalize()
 
-        if _self.base > _other.base:
+        if not op(_self.base, _other.base):
             return False
 
         if _self.top_left:
-            if not _self.top_left.offset_base(_self.base - _other.base) <= (_other.top_left or Event()):
+            if not op(_self.top_left.offset_base(_self.base - _other.base), (_other.top_left or Event())):
                 return False
 
         if _self.top_right:
-            if not _self.top_right.offset_base(_self.base - _other.base) <= (_other.top_right or Event()):
+            if not op(_self.top_right.offset_base(_self.base - _other.base), (_other.top_right or Event())):
                 return False
 
         return True
+
+    def __lt__(self, other: 'Event'):
+        return self.__compare(other, operator.lt)
+
+    def __le__(self, other: 'Event'):
+        return self.__compare(other, operator.le)
+
+    def __gt__(self, other: 'Event'):
+        return self.__compare(other, operator.gt)
+
+    def __ge__(self, other: 'Event'):
+        return self.__compare(other, operator.ge)
 
     def fill(self, interval: Union[IDInteger, IDTuple]):
         # note: does not intelligently fill to height of other things
